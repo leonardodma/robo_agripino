@@ -14,19 +14,20 @@ from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 import smach
 import smach_ros
+import auxiliar as aux
 
 
-def identifica_cor(frame):
+def identifica_rosa(frame):
     '''
     Segmenta o maior objeto cuja cor é parecida com cor_h (HUE da cor, no espaço HSV).
     '''
 
     frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # Segmentação do creeper verde 
-    cor_menor = np.array([110, 50, 50])
-    cor_maior = np.array([130, 255, 255])
+    # Segmentação do creeper rosa
+    cor_menor, cor_maior = aux.ranges("#ff04ff")
     segmentado_cor = cv2.inRange(frame_hsv, cor_menor, cor_maior)
+
 
     # Note que a notacão do numpy encara as imagens como matriz, portanto o enderecamento é
     # linha, coluna ou (y,x)
@@ -43,12 +44,11 @@ def identifica_cor(frame):
     # A operação MORPH_CLOSE fecha todos os buracos na máscara menores 
     # que um quadrado 7x7. É muito útil para juntar vários 
     # pequenos contornos muito próximos em um só.
-    segmentado_cor = cv2.morphologyEx(segmentado_cor,cv2.MORPH_CLOSE,np.ones((7, 7)))
+    #segmentado_cor = cv2.morphologyEx(segmentado_cor,cv2.MORPH_CLOSE,np.ones((7, 7)))
 
     # Encontramos os contornos na máscara e selecionamos o de maior área
-    #contornos, arvore = cv2.findContours(segmentado_cor.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)	
     contornos, arvore = cv2.findContours(segmentado_cor.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) 
-
+    
     maior_contorno = None
     maior_contorno_area = 0
 
@@ -74,8 +74,34 @@ def identifica_cor(frame):
     cv2.putText(frame,"{:d} {:d}".format(*media),(20,100), 1, 4,(255,255,255),2,cv2.LINE_AA)
     cv2.putText(frame,"{:0.1f}".format(maior_contorno_area),(20,50), 1, 4,(255,255,255),2,cv2.LINE_AA)
 
-   # cv2.imshow('video', frame)
+    cv2.imshow('video', frame)
     cv2.imshow('seg', segmentado_cor)
     cv2.waitKey(1)
 
     return media, centro, maior_contorno_area
+
+
+def booleanContornos(frame):
+    frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Segmentação do creeper rosa
+    cor_menor, cor_maior = aux.ranges("#ff04ff")
+    segmentado_cor = cv2.inRange(frame_hsv, cor_menor, cor_maior)
+
+    #segmentado_cor = cv2.morphologyEx(segmentado_cor,cv2.MORPH_CLOSE,np.ones((7, 7)))
+    
+    contornos, arvore = cv2.findContours(segmentado_cor.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) 
+
+    maior_contorno = None
+    maior_contorno_area = 0
+
+    for cnt in contornos:
+        area = cv2.contourArea(cnt)
+        if area > maior_contorno_area:
+            maior_contorno = cnt
+            maior_contorno_area = area
+
+    if maior_contorno_area > 2000:
+        return False
+    else:
+        return True

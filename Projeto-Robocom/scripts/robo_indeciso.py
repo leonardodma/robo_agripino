@@ -36,7 +36,6 @@ if __name__=="__main__":
                 velocidade = Twist(Vector3(0.50, 0, 0), Vector3(0, 0, 0))
                 
             else:
-                print('Entrou')
                 velocidade = Twist(Vector3(-0.50, 0, 0), Vector3(0, 0, 0))
 
             velocidade_saida.publish(velocidade)
