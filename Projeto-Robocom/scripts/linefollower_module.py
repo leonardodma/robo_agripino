@@ -7,18 +7,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 import time
 import sys
-    
-
-def retorna_maior(linhas):
-    maior = 0
-    maior_linha = None
-    for linha in linhas:
-        dedp = ((linha[0] - linha[2])**2 + (linha[1] - linha[3])**2)**(1/2)
-        if dedp > maior:
-            maior = dedp
-            maior_linha = linha
-
-    return maior_linha
 
 
 def region_of_interest(img, regiao):
@@ -127,7 +115,7 @@ def ponto_de_fuga(reta_direita, reta_esquerda):
     except:
         pass
 
-
+"""
 cap = cv2.VideoCapture('line_following.mp4') 
 lower = 0
 upper = 1
@@ -158,3 +146,4 @@ while(True):
 #  When everything done, release the capture
 cap.release()
 cv2.destroyAllWindows() 
+"""
