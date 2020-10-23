@@ -17,16 +17,19 @@ from tf import transformations
 from tf import TransformerROS
 import tf2_ros
 from geometry_msgs.msg import Twist, Vector3, Pose, Vector3Stamped
-
+import rospkg
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Header
 
 
+
 import visao_module
-import linefollower_module
+import center_mass
 
 
 bridge = CvBridge()
+rospack = rospkg.RosPack()
+
 
 cv_image = None
 media = []
@@ -53,8 +56,6 @@ frame = "camera_link"
 tfl = 0
 
 tf_buffer = tf2_ros.Buffer()
-
-
 
 # A função a seguir é chamada sempre que chega um novo frame
 def roda_todo_frame(imagem):
@@ -87,16 +88,18 @@ def roda_todo_frame(imagem):
         # Desnecessário - Hough e MobileNet já abrem janelas
 
         cv_image = saida_net.copy()
-        segmentado = linefollower_module.segmenta(cv_image)
+        media, centro, maior_area =  center_mass.identifica_pista(cv_image)
 
         cv2.imshow("cv_image", cv_image)
-        cv2.imshow("segmentado", segmentado)
-
-
+       
+        
         cv2.waitKey(1)
+
     except CvBridgeError as e:
         print('ex', e)
-    
+    path = rospack.get_path('Projeto-Robocom')
+
+
 if __name__=="__main__":
     rospy.init_node("cor")
 
@@ -117,15 +120,24 @@ if __name__=="__main__":
     try:
         # Inicializando - por default gira no sentido anti-horário
         # vel = Twist(Vector3(0,0,0), Vector3(0,0,math.pi/10.0))
-        vel = Twist(Vector3(0.1,0,0), Vector3(0,0,math.pi/10.0))
+        vel_1 = Twist(Vector3(0.3,0,0), Vector3(0,0,-0.3))
+        vel_2 = Twist(Vector3(0.3,0,0), Vector3(0,0,0.3))
+        parado = Twist(Vector3(0,0,0), Vector3(0,0,0))
+        ang = Twist(Vector3(0,0,0), Vector3(0,0,0.3))
         
         while not rospy.is_shutdown():
             for r in resultados:
                 print(r)
-            velocidade_saida.publish(vel)
-            rospy.sleep(0.1)
+            if len(media) != 0 and len(centro) != 0:
+                if (media[0] > centro[0]):
+                    velocidade_saida.publish(vel_1)
+                    rospy.sleep(0.1)
+                elif (media[0] < centro[0]):
+                    velocidade_saida.publish(vel_2)
+                    rospy.sleep(0.1)
+                else:
+                    velocidade_saida.publish(parado)
+                    rospy.sleep(0.1)
 
     except rospy.ROSInterruptException:
         print("Ocorreu uma exceção com o rospy")
-
-

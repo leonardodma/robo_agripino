@@ -4,30 +4,56 @@
 import cv2
 import numpy as np 
 
-print("Baixe o arquivo a seguir para funcionar: ")
-print("https://github.com/Insper/robot202/raw/master/projeto/centro_massa/line_following.mp4")
 
-cap = cv2.VideoCapture('line_following.mp4')
+def identifica_pista(bgr):
+    centro = (bgr.shape[1]//2, bgr.shape[0]//2)
 
-# Valores para amarelo usando um color picker
-low = np.array([22, 50, 50],dtype=np.uint8)
-high = np.array([36, 255, 255],dtype=np.uint8)
-
-def filter_color(bgr, low, high):
-    """ REturns a mask within the range"""
+    # Valores para amarelo usando um color picker
+    low = np.array([22, 50, 50],dtype=np.uint8)
+    high = np.array([36, 255, 255],dtype=np.uint8)
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, low, high)
-    return mask     
+    
+
+    # Encontramos os contornos na máscara e selecionamos o de maior área
+    contornos, arvore = cv2.findContours(mask.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) 
+    
+    maior_contorno = None
+    maior_contorno_area = 0
+
+    for cnt in contornos:
+        area = cv2.contourArea(cnt)
+        if area > maior_contorno_area:
+            maior_contorno = cnt
+            maior_contorno_area = area
+    
+    if not maior_contorno is None:
+        try:
+            p = center_of_mass(maior_contorno) # centro de massa
+            crosshair(bgr, p, 20, (128,128,0))
+            maior_contorno = np.reshape(maior_contorno, (maior_contorno.shape[0], 2))
+            media = maior_contorno.mean(axis=0)
+            media = media.astype(np.int32)
+        
+        except:
+            p = centro
+            crosshair(bgr, p, 20, (128,128,0))
+    
+    return media, centro, maior_contorno_area    
+
 
 # Função centro de massa baseada na aula 02  https://github.com/Insper/robot202/blob/master/aula02/aula02_Exemplos_Adicionais.ipynb
 # Esta função calcula centro de massa de máscara binária 0-255 também, não só de contorno
 def center_of_mass(mask):
     """ Retorna uma tupla (cx, cy) que desenha o centro do contorno"""
     M = cv2.moments(mask)
+
     # Usando a expressão do centróide definida em: https://en.wikipedia.org/wiki/Image_moment
     cX = int(M["m10"] / M["m00"])
     cY = int(M["m01"] / M["m00"])
     return [int(cX), int(cY)]
+
+
 
 def crosshair(img, point, size, color):
     """ Desenha um crosshair centrado no point.
@@ -38,6 +64,7 @@ def crosshair(img, point, size, color):
     cv2.line(img,(x - size,y),(x + size,y),color,5)
     cv2.line(img,(x,y - size),(x, y + size),color,5)
 
+
 def center_of_mass_region(mask, x1, y1, x2, y2):
     # Para fins de desenho
     mask_bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
@@ -46,38 +73,4 @@ def center_of_mass_region(mask, x1, y1, x2, y2):
     c[0]+=x1
     c[1]+=y1
     crosshair(mask_bgr, c, 10, (0,0,255))
-    cv2.rectangle(mask_bgr, (x1, y1), (x2, y2), (255,0,0),2,cv2.LINE_AA)
     return mask_bgr
-
-
-    
-
-
-
-
-
-
-while(True):
-    # Capture frame-by-frame
-    ret, frame = cap.read()
-    
-    if ret == False:
-        print("Codigo de retorno FALSO - problema para capturar o frame")
-
-    # Our operations on the frame come here
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    
-    cv2.imshow('frame',frame)
-    mask = filter_color(frame, low, high)
-    mask_bgr = center_of_mass_region(mask, 20, 200, frame.shape[1] - 20, frame.shape[0]-100) # Lembrando que negativos contam a partir do fim`
-    cv2.imshow('mask', mask_bgr)
-
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-# When everything done, release the capture
-cap.release()
-cv2.destroyAllWindows()
-
