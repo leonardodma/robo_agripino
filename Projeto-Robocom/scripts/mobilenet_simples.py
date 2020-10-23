@@ -13,7 +13,7 @@ import os
 
 
 rospack = rospkg.RosPack()
-path = rospack.get_path('exemplos_python')
+path = rospack.get_path('Projeto-Robocom')
 scripts = os.path.join(path,  "scripts")
 
 proto = os.path.join(scripts,"MobileNetSSD_deploy.prototxt.txt")
