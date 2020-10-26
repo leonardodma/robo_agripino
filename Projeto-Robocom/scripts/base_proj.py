@@ -181,7 +181,19 @@ if __name__=="__main__":
         estado = "frente_esquerda"
         estado = "parado"
         estado = "virando_direita"
+
+        def maquina_de_estados(media, centro, nao_bateu, identifica_contorno_pista):
+            
+            if nao_bateu:
+                if (media[0] > centro[0]):
+                    estado = "frente_direita"
+                if (media[0] < centro[0]):
+                    estado = "frente_direita"
+            else:
+                estado = "
+
         """
+
         
 
 
