@@ -25,6 +25,7 @@ from std_msgs.msg import Header
 
 import visao_module
 import center_mass
+import creeper
 
 
 bridge = CvBridge()
@@ -193,9 +194,6 @@ if __name__=="__main__":
                 estado = "
 
         """
-
-        
-
 
     except rospy.ROSInterruptException:
         print("Ocorreu uma exceção com o rospy")
