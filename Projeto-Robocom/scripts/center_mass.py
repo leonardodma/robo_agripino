@@ -18,6 +18,7 @@ def identifica_pista(bgr):
     # Encontramos os contornos na máscara e selecionamos o de maior área
     contornos, arvore = cv2.findContours(mask.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) 
     
+
     maior_contorno = None
     maior_contorno_area = 0
 
@@ -26,7 +27,8 @@ def identifica_pista(bgr):
         if area > maior_contorno_area:
             maior_contorno = cnt
             maior_contorno_area = area
-    
+
+    media = None
     if not maior_contorno is None:
         try:
             p = center_of_mass(maior_contorno) # centro de massa
@@ -38,8 +40,15 @@ def identifica_pista(bgr):
         except:
             p = centro
             crosshair(bgr, p, 20, (128,128,0))
+
+    def booleanContornos(maior_contorno):
+        if maior_contorno_area > 100:
+            return True
+        else:
+            return False
+
     
-    return media, centro, maior_contorno_area    
+    return media, centro, maior_contorno_area, booleanContornos(maior_contorno)
 
 
 # Função centro de massa baseada na aula 02  https://github.com/Insper/robot202/blob/master/aula02/aula02_Exemplos_Adicionais.ipynb

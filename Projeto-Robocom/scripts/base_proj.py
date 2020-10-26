@@ -10,7 +10,7 @@ import math
 import cv2
 import time
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import Image, CompressedImage
+from sensor_msgs.msg import Image, CompressedImage, LaserScan
 from cv_bridge import CvBridge, CvBridgeError
 from numpy import linalg
 from tf import transformations
@@ -56,14 +56,23 @@ frame = "camera_link"
 tfl = 0
 
 tf_buffer = tf2_ros.Buffer()
+nao_bateu = True
+identifica_contorno_pista = True
+
+
+def scaneou(dado):
+    global nao_bateu
+    if dado.ranges[0] <= 0.25:
+        nao_bateu = False
+
 
 # A função a seguir é chamada sempre que chega um novo frame
 def roda_todo_frame(imagem):
-    print("frame")
     global cv_image
     global media
     global centro
     global resultados
+    global identifica_contorno_pista
 
     now = rospy.get_rostime()
     imgtime = imagem.header.stamp
@@ -88,7 +97,7 @@ def roda_todo_frame(imagem):
         # Desnecessário - Hough e MobileNet já abrem janelas
 
         cv_image = saida_net.copy()
-        media, centro, maior_area =  center_mass.identifica_pista(cv_image)
+        media, centro, maior_area, identifica_contorno_pista =  center_mass.identifica_pista(cv_image)
 
         cv2.imshow("cv_image", cv_image)
        
@@ -110,6 +119,7 @@ if __name__=="__main__":
     print("Usando ", topico_imagem)
 
     velocidade_saida = rospy.Publisher("/cmd_vel", Twist, queue_size = 1)
+    recebe_scan = rospy.Subscriber("/scan", LaserScan, scaneou)
 
     tfl = tf2_ros.TransformListener(tf_buffer) #conversao do sistema de coordenadas 
     tolerancia = 25
@@ -118,26 +128,62 @@ if __name__=="__main__":
     # [('chair', 86.965459585189819, (90, 141), (177, 265))]
 
     try:
+        w = 0.4
+        v = 0.4
         # Inicializando - por default gira no sentido anti-horário
-        # vel = Twist(Vector3(0,0,0), Vector3(0,0,math.pi/10.0))
-        vel_1 = Twist(Vector3(0.3,0,0), Vector3(0,0,-0.3))
-        vel_2 = Twist(Vector3(0.3,0,0), Vector3(0,0,0.3))
+        vel_1 = Twist(Vector3(v,0,0), Vector3(0,0,-w))
+        vel_2 = Twist(Vector3(v,0,0), Vector3(0,0,w))
+        vel = Twist(Vector3(v,0,0), Vector3(0,0,0))
         parado = Twist(Vector3(0,0,0), Vector3(0,0,0))
-        ang = Twist(Vector3(0,0,0), Vector3(0,0,0.3))
+        virar = Twist(Vector3(0,0,0), Vector3(0,0,w))
+        
+        dist = 0.8
+        tempo1 = dist/v
+
+        # w = dteta/dt
+        angulo = math.pi
+        tempo2 = angulo/w
+
         
         while not rospy.is_shutdown():
             for r in resultados:
                 print(r)
-            if len(media) != 0 and len(centro) != 0:
-                if (media[0] > centro[0]):
-                    velocidade_saida.publish(vel_1)
+
+            while not identifica_contorno_pista:
+                velocidade_saida.publish(virar)
+                rospy.sleep(0.1)
+
+            if nao_bateu:
+                try:
+                    if (media[0] > centro[0]):
+                        velocidade_saida.publish(vel_1)
+                        rospy.sleep(0.1)
+                    elif (media[0] < centro[0]):
+                        velocidade_saida.publish(vel_2)
+                        rospy.sleep(0.1)
+                    else:
+                        velocidade_saida.publish(parado)
+                        rospy.sleep(0.1)
+                except:
+                    velocidade_saida.publish(virar)
                     rospy.sleep(0.1)
-                elif (media[0] < centro[0]):
-                    velocidade_saida.publish(vel_2)
-                    rospy.sleep(0.1)
-                else:
-                    velocidade_saida.publish(parado)
-                    rospy.sleep(0.1)
+
+            else:
+                velocidade_saida.publish(virar)
+                rospy.sleep(tempo2)
+
+                velocidade_saida.publish(vel)
+                rospy.sleep(tempo1)
+
+        """
+        estado = "frente"
+        estado = "frente_direita"
+        estado = "frente_esquerda"
+        estado = "parado"
+        estado = "virando_direita"
+        """
+        
+
 
     except rospy.ROSInterruptException:
         print("Ocorreu uma exceção com o rospy")
