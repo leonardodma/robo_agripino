@@ -15,7 +15,7 @@ def identifica_creeper(frame, creeper_color):
 
     # segmentação para trabalhar com as cores dos creepers da pista 
     if creeper_color == "rosa":
-        cor_menor, cor_maior = aux.ranges("#ff00ff")
+        cor_menor, cor_maior = aux.ranges("#e60c69")
         segmentado_cor = cv2.inRange(frame_hsv, cor_menor, cor_maior)
     
     elif creeper_color == "azul":
@@ -23,8 +23,13 @@ def identifica_creeper(frame, creeper_color):
         segmentado_cor = cv2.inRange(frame_hsv, cor_menor, cor_maior)
 
     elif creeper_color == "vermelho":
-        cor_menor, cor_maior = aux.ranges("#ff0000")
+        cor_menor = np.array([0, 180, 135])
+        cor_maior = np.array([2, 255, 255])
         segmentado_cor = cv2.inRange(frame_hsv, cor_menor, cor_maior)
+
+        cor_menor = np.array([178, 180, 135])
+        cor_maior = np.array([180, 255, 255])
+        segmentado_cor += cv2.inRange(frame_hsv, cor_menor, cor_maior)
     
     else: # creeper_color == "verde":
         cor_menor, cor_maior = aux.ranges("#00ff00")

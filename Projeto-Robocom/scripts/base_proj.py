@@ -33,12 +33,11 @@ rospack = rospkg.RosPack()
 
 
 cv_image = None
-media = []
-centro = []
+media_pista = []
+centro_pista = []
 atraso = 1.5E9 # 1 segundo e meio. Em nanossegundos
-
-
 area = 0.0 # Variavel com a area do maior contorno
+
 
 # Só usar se os relógios ROS da Raspberry e do Linux desktop estiverem sincronizados. 
 # Descarta imagens que chegam atrasadas demais
@@ -56,9 +55,13 @@ frame = "camera_link"
 
 tfl = 0
 
+media_creeper = []
+centro_creeper = []
+
 tf_buffer = tf2_ros.Buffer()
 nao_bateu = True
 identifica_contorno_pista = True
+identifica_creeper = False
 
 
 def scaneou(dado):
@@ -70,10 +73,14 @@ def scaneou(dado):
 # A função a seguir é chamada sempre que chega um novo frame
 def roda_todo_frame(imagem):
     global cv_image
-    global media
-    global centro
+    global media_pista
+    global centro_pista
     global resultados
     global identifica_contorno_pista
+
+    global media_creeper
+    global centro_creeper
+    global identifica_creeper
 
     now = rospy.get_rostime()
     imgtime = imagem.header.stamp
@@ -98,11 +105,10 @@ def roda_todo_frame(imagem):
         # Desnecessário - Hough e MobileNet já abrem janelas
 
         cv_image = saida_net.copy()
-        media, centro, maior_area, identifica_contorno_pista =  center_mass.identifica_pista(cv_image)
+        media_pista, centro_pista, maior_area, identifica_contorno_pista =  center_mass.identifica_pista(cv_image)
+        media_creeper, centro_creeper, maior_area_creeper, identifica_creeper =  creeper.identifica_creeper(cv_image, "vermelho")
 
         cv2.imshow("cv_image", cv_image)
-       
-        
         cv2.waitKey(1)
 
     except CvBridgeError as e:
@@ -150,31 +156,41 @@ if __name__=="__main__":
             for r in resultados:
                 print(r)
 
-            while not identifica_contorno_pista:
-                velocidade_saida.publish(virar)
-                rospy.sleep(0.1)
-
-            if nao_bateu:
-                try:
-                    if (media[0] > centro[0]):
-                        velocidade_saida.publish(vel_1)
-                        rospy.sleep(0.1)
-                    elif (media[0] < centro[0]):
-                        velocidade_saida.publish(vel_2)
-                        rospy.sleep(0.1)
-                    else:
-                        velocidade_saida.publish(parado)
-                        rospy.sleep(0.1)
-                except:
+            if not identifica_creeper:
+                while not identifica_contorno_pista:
                     velocidade_saida.publish(virar)
                     rospy.sleep(0.1)
 
-            else:
-                velocidade_saida.publish(virar)
-                rospy.sleep(tempo2)
+                if nao_bateu:
+                    try:
+                        if (media_pista[0] > centro_pista[0]):
+                            velocidade_saida.publish(vel_1)
+                            rospy.sleep(0.1)
+                        elif (media_pista[0] < centro_pista[0]):
+                            velocidade_saida.publish(vel_2)
+                            rospy.sleep(0.1)
+                        else:
+                            velocidade_saida.publish(parado)
+                            rospy.sleep(0.1)
+                    except:
+                        velocidade_saida.publish(virar)
+                        rospy.sleep(0.1)
 
-                velocidade_saida.publish(vel)
-                rospy.sleep(tempo1)
+                else:
+                    velocidade_saida.publish(virar)
+                    rospy.sleep(tempo2)
+
+                    velocidade_saida.publish(vel)
+                    rospy.sleep(tempo1)
+            
+            else:
+                print("Entrou!")
+                if (media_creeper[0] > centro_creeper[0]):
+                    velocidade_saida.publish(vel_1)
+                    rospy.sleep(0.1)
+                elif (media_creeper[0] < centro_creeper[0]):
+                    velocidade_saida.publish(vel_2)
+                    rospy.sleep(0.1)
 
         """
         estado = "frente"
