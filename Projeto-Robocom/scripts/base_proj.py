@@ -49,6 +49,9 @@ x = 0
 y = 0
 z = 0 
 id = 0
+contador = 0
+pula = 50
+alpha = 0
 
 frame = "camera_link"
 # frame = "head_camera"  # DESCOMENTE para usar com webcam USB via roslaunch tag_tracking usbcam
@@ -58,6 +61,7 @@ tfl = 0
 media_creeper = []
 centro_creeper = []
 
+# Variáveis booleanas
 tf_buffer = tf2_ros.Buffer()
 nao_bateu = True
 identifica_contorno_pista = True
@@ -66,8 +70,75 @@ identifica_creeper = False
 
 def scaneou(dado):
     global nao_bateu
+    # 25cm
     if dado.ranges[0] <= 0.25:
         nao_bateu = False
+
+
+def recebe_odometria(data):
+    global x
+    global y
+    global contador
+
+    x = data.pose.pose.position.x
+    y = data.pose.pose.position.y
+
+    quat = data.pose.pose.orientation
+    lista = [quat.x, quat.y, quat.z, quat.w]
+    angulos = np.degrees(transformations.euler_from_quaternion(lista))    
+
+    if contador % pula == 0:
+        print("Posicao (x,y)  ({:.2f} , {:.2f}) + angulo {:.2f}".format(x, y,angulos[2]))
+    contador = contador + 1
+
+
+def go_to(x1, y1, v, w, pub):
+    global alpha 
+    global x
+    global y
+    global dist
+    global zero
+
+    x0 = x
+    y0 = y
+    deltay = y1-y0
+    deltax = x1-x0
+
+    dist = ((deltax)**2 + (deltay)**2)**(1/2)
+    zero = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+
+    while dist > 0.3:
+        teta = math.atan2(deltay, deltax)
+        angulo = teta - alpha
+        tempo = abs(angulo)/w
+
+        if angulo > 0:
+            velocidade = Twist(Vector3(0, 0, 0), Vector3(0, 0, w))
+        
+        else:
+            velocidade = Twist(Vector3(0, 0, 0), Vector3(0, 0, -w))
+
+
+        pub.publish(velocidade)
+        rospy.sleep(tempo)
+        pub.publish(zero)
+        rospy.sleep(0.1)
+
+        # Translação
+        tempo = dist/v
+        velocidade = Twist(Vector3(v, 0, 0), Vector3(0, 0, 0))
+        pub.publish(velocidade)
+        rospy.sleep(tempo)
+
+        pub.publish(zero)
+        rospy.sleep(0.1)
+
+        x0 = x
+        y0 = y
+        deltay = y1-y0
+        deltax = x1-x0
+        dist = ((deltax)**2 + (deltay)**2)**(1/2)
+        print(dist)
 
 
 # A função a seguir é chamada sempre que chega um novo frame
@@ -105,8 +176,9 @@ def roda_todo_frame(imagem):
         # Desnecessário - Hough e MobileNet já abrem janelas
 
         cv_image = saida_net.copy()
+        # cv_image = cv2.flip(cv_image, -1) # Descomente se for robo real
         media_pista, centro_pista, maior_area, identifica_contorno_pista =  center_mass.identifica_pista(cv_image)
-        media_creeper, centro_creeper, maior_area_creeper, identifica_creeper =  creeper.identifica_creeper(cv_image, "vermelho")
+        media_creeper, centro_creeper, maior_area_creeper, identifica_creeper =  creeper.identifica_creeper(cv_image, "rosa")
 
         cv2.imshow("cv_image", cv_image)
         cv2.waitKey(1)
@@ -120,12 +192,14 @@ if __name__=="__main__":
     rospy.init_node("cor")
 
     topico_imagem = "/camera/image/compressed"
+    # topico_imagem = "/raspicam/image_raw/compressed" # Use para robo real
 
     recebedor = rospy.Subscriber(topico_imagem, CompressedImage, roda_todo_frame, queue_size=4, buff_size = 2**24)
 
     print("Usando ", topico_imagem)
 
     velocidade_saida = rospy.Publisher("/cmd_vel", Twist, queue_size = 1)
+    ref_odometria = rospy.Subscriber("/odom", Odometry, recebe_odometria)
     recebe_scan = rospy.Subscriber("/scan", LaserScan, scaneou)
 
     tfl = tf2_ros.TransformListener(tf_buffer) #conversao do sistema de coordenadas 
@@ -155,6 +229,9 @@ if __name__=="__main__":
         while not rospy.is_shutdown():
             for r in resultados:
                 print(r)
+            
+            # Marcação para guardar a posição anterior à identificação do creeper
+            flag = True
 
             if not identifica_creeper:
                 while not identifica_contorno_pista:
@@ -183,14 +260,25 @@ if __name__=="__main__":
                     velocidade_saida.publish(vel)
                     rospy.sleep(tempo1)
             
+            ponto = None
+
             else:
-                print("Entrou!")
-                if (media_creeper[0] > centro_creeper[0]):
-                    velocidade_saida.publish(vel_1)
-                    rospy.sleep(0.1)
-                elif (media_creeper[0] < centro_creeper[0]):
-                    velocidade_saida.publish(vel_2)
-                    rospy.sleep(0.1)
+                if flag:
+                    ponto = (x,y)
+                    flag = False 
+
+                if nao_bateu: 
+                    if (media_creeper[0] > centro_creeper[0]):
+                        velocidade_saida.publish(vel_1)
+                        rospy.sleep(0.1)
+                    elif (media_creeper[0] < centro_creeper[0]):
+                        velocidade_saida.publish(vel_2)
+                        rospy.sleep(0.1)
+                else:
+                    go_to(ponto[0], ponto[1], v, w, velocidade_saida)
+                    flag = True
+
+
 
         """
         estado = "frente"

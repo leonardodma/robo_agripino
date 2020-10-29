@@ -70,6 +70,7 @@ def identifica_creeper(frame, creeper_color):
     if not maior_contorno is None :
         cv2.drawContours(frame, [maior_contorno], -1, [0, 255, 0], 5)
         maior_contorno = np.reshape(maior_contorno, (maior_contorno.shape[0], 2))
+        # centro do maior contorno
         media = maior_contorno.mean(axis=0)
         media = media.astype(np.int32)
         cv2.circle(frame, (media[0], media[1]), 5, [0, 255, 0])

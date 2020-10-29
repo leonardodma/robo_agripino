@@ -9,6 +9,7 @@ def identifica_pista(bgr):
     centro = (bgr.shape[1]//2, bgr.shape[0]//2)
 
     # Valores para amarelo usando um color picker
+    # mascara amarela
     low = np.array([22, 50, 50],dtype=np.uint8)
     high = np.array([36, 255, 255],dtype=np.uint8)
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
