@@ -259,10 +259,9 @@ if __name__=="__main__":
 
                     velocidade_saida.publish(vel)
                     rospy.sleep(tempo1)
-            
-            ponto = None
 
             else:
+                ponto = None
                 if flag:
                     ponto = (x,y)
                     flag = False 
