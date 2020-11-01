@@ -261,7 +261,7 @@ if __name__=="__main__":
                     rospy.sleep(tempo1)
 
             else:
-                ponto = None
+                ponto =  None
                 if flag:
                     ponto = (x,y)
                     flag = False 
