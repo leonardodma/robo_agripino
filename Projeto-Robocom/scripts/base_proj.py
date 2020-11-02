@@ -66,12 +66,15 @@ tf_buffer = tf2_ros.Buffer()
 nao_bateu = True
 identifica_contorno_pista = True
 identifica_creeper = False
+# Marcação para guardar a posição anterior à identificação do creeper
+flag = True
 
 
 def scaneou(dado):
     global nao_bateu
     # 25cm
-    if dado.ranges[0] <= 0.25:
+    print('distancia: ', dado.ranges[0])
+    if dado.ranges[0] <= 0.35:
         nao_bateu = False
 
 
@@ -209,8 +212,8 @@ if __name__=="__main__":
     # [('chair', 86.965459585189819, (90, 141), (177, 265))]
 
     try:
-        w = 0.4
-        v = 0.4
+        w = 0.25
+        v = 0.25
         # Inicializando - por default gira no sentido anti-horário
         vel_1 = Twist(Vector3(v,0,0), Vector3(0,0,-w))
         vel_2 = Twist(Vector3(v,0,0), Vector3(0,0,w))
@@ -224,6 +227,7 @@ if __name__=="__main__":
         # w = dteta/dt
         angulo = math.pi
         tempo2 = angulo/w
+        
 
         
         while not rospy.is_shutdown():
@@ -231,7 +235,7 @@ if __name__=="__main__":
                 print(r)
             
             # Marcação para guardar a posição anterior à identificação do creeper
-            flag = True
+            #flag = True
 
             if not identifica_creeper:
                 while not identifica_contorno_pista:
@@ -261,12 +265,14 @@ if __name__=="__main__":
                     rospy.sleep(tempo1)
 
             else:
-                ponto =  None
+                #ponto =  None
                 if flag:
                     ponto = (x,y)
-                    flag = False 
+                    flag = False
+                    print('Hasta la vista babeeeeee! Ponto: ', ponto) 
 
                 if nao_bateu: 
+                    print('rosa here I goooo')
                     if (media_creeper[0] > centro_creeper[0]):
                         velocidade_saida.publish(vel_1)
                         rospy.sleep(0.1)
@@ -274,8 +280,10 @@ if __name__=="__main__":
                         velocidade_saida.publish(vel_2)
                         rospy.sleep(0.1)
                 else:
+                    print('mals ae')
                     go_to(ponto[0], ponto[1], v, w, velocidade_saida)
                     flag = True
+                    print('voltando ao ponto inicial')
 
 
 
