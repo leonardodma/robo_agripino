@@ -72,15 +72,14 @@ flag = True
 
 def scaneou(dado):
     global nao_bateu
-    # 25cm
-    print('distancia: ', dado.ranges[0])
-    if dado.ranges[0] <= 0.35:
+    # 40cm
+    if dado.ranges[0] <= 0.40:
         nao_bateu = False
-
 
 def recebe_odometria(data):
     global x
     global y
+    global alfa
     global contador
 
     x = data.pose.pose.position.x
@@ -88,60 +87,74 @@ def recebe_odometria(data):
 
     quat = data.pose.pose.orientation
     lista = [quat.x, quat.y, quat.z, quat.w]
-    angulos = np.degrees(transformations.euler_from_quaternion(lista))    
+    angulos_rad = transformations.euler_from_quaternion(lista)
+    angulos = np.degrees(angulos_rad)    
 
+    alpha = angulos_rad[2] # mais facil se guardarmos alfa em radianos
+    '''
     if contador % pula == 0:
         print("Posicao (x,y)  ({:.2f} , {:.2f}) + angulo {:.2f}".format(x, y,angulos[2]))
     contador = contador + 1
+    '''
 
-
-def go_to(x1, y1, v, w, pub):
+def go_to(x2, y2, pub):
+    '''
     global alpha 
     global x
     global y
     global dist
-    global zero
+    global parado
+    global v
+    global w
+    '''
 
-    x0 = x
-    y0 = y
-    deltay = y1-y0
-    deltax = x1-x0
+    #calcula a dist
+    dist = math.sqrt(math.pow(x2 - x, 2) + math.pow(y2 - y, 2))
+    
+    while dist > 0.6:
 
-    dist = ((deltax)**2 + (deltay)**2)**(1/2)
-    zero = Twist(Vector3(0, 0, 0), Vector3(0, 0, 0))
+        #calcular theta
+        theta = math.atan2(y2-y, x2-x)
 
-    while dist > 0.3:
-        teta = math.atan2(deltay, deltax)
-        angulo = teta - alpha
-        tempo = abs(angulo)/w
+        #obter alpha da odometria a converter para rad
+        angulo = theta - alpha
 
+        #girar theta - alpha para a esquerda
+        tempo = angulo / w
+
+        '''
         if angulo > 0:
-            velocidade = Twist(Vector3(0, 0, 0), Vector3(0, 0, w))
-        
-        else:
             velocidade = Twist(Vector3(0, 0, 0), Vector3(0, 0, -w))
-
+ 
+        else:
+            velocidade = Twist(Vector3(0, 0, 0), Vector3(0, 0, w))
+        '''
+        velocidade = Twist(Vector3(0, 0, 0), Vector3(0, 0, w))
+    
 
         pub.publish(velocidade)
         rospy.sleep(tempo)
-        pub.publish(zero)
-        rospy.sleep(0.1)
+        pub.publish(parado)
+        rospy.sleep(0.5)
 
-        # Translação
-        tempo = dist/v
+        #calcula a dist
+        d = math.sqrt(math.pow(x2 - x, 2) + math.pow(y2 - y, 2))
+
+        #andar d 
+        tempo_d = (d-0.7)/v
+
         velocidade = Twist(Vector3(v, 0, 0), Vector3(0, 0, 0))
         pub.publish(velocidade)
-        rospy.sleep(tempo)
+        rospy.sleep(tempo_d)
+        pub.publish(parado)
+        rospy.sleep(0.5)
 
-        pub.publish(zero)
-        rospy.sleep(0.1)
+        #calcula a dist
+        dist = math.sqrt(math.pow(x2 - x, 2) + math.pow(y2 - y, 2))
+        print('distancia', dist)
+        print('angulo: ',angulo )
 
-        x0 = x
-        y0 = y
-        deltay = y1-y0
-        deltax = x1-x0
-        dist = ((deltax)**2 + (deltay)**2)**(1/2)
-        print(dist)
+
 
 
 # A função a seguir é chamada sempre que chega um novo frame
@@ -212,8 +225,8 @@ if __name__=="__main__":
     # [('chair', 86.965459585189819, (90, 141), (177, 265))]
 
     try:
-        w = 0.25
-        v = 0.25
+        w = 0.2
+        v = 0.2
         # Inicializando - por default gira no sentido anti-horário
         vel_1 = Twist(Vector3(v,0,0), Vector3(0,0,-w))
         vel_2 = Twist(Vector3(v,0,0), Vector3(0,0,w))
@@ -238,6 +251,7 @@ if __name__=="__main__":
             #flag = True
 
             if not identifica_creeper:
+                flag = True
                 while not identifica_contorno_pista:
                     velocidade_saida.publish(virar)
                     rospy.sleep(0.1)
@@ -265,6 +279,7 @@ if __name__=="__main__":
                     rospy.sleep(tempo1)
 
             else:
+                print('creeper a la vista', identifica_creeper)
                 #ponto =  None
                 if flag:
                     ponto = (x,y)
@@ -281,8 +296,8 @@ if __name__=="__main__":
                         rospy.sleep(0.1)
                 else:
                     print('mals ae')
-                    go_to(ponto[0], ponto[1], v, w, velocidade_saida)
-                    flag = True
+                    go_to(ponto[0], ponto[1], velocidade_saida)
+                    #flag = True
                     print('voltando ao ponto inicial')
 
 
