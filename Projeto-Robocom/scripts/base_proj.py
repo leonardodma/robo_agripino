@@ -70,11 +70,24 @@ identifica_creeper = False
 flag = True
 
 
+w = 0.3 
+v = 0.3
+# Inicializando - por default gira no sentido anti-horário
+vel_1 = Twist(Vector3(v,0,0), Vector3(0,0,-w))
+vel_2 = Twist(Vector3(v,0,0), Vector3(0,0,w))
+vel = Twist(Vector3(v,0,0), Vector3(0,0,0))
+parado = Twist(Vector3(0,0,0), Vector3(0,0,0))
+virar = Twist(Vector3(0,0,0), Vector3(0,0,w))
+
+
 def scaneou(dado):
     global nao_bateu
     # 40cm
     if dado.ranges[0] <= 0.40:
         nao_bateu = False
+    else:
+        nao_bateu = True
+
 
 def recebe_odometria(data):
     global x
@@ -88,7 +101,6 @@ def recebe_odometria(data):
     quat = data.pose.pose.orientation
     lista = [quat.x, quat.y, quat.z, quat.w]
     angulos_rad = transformations.euler_from_quaternion(lista)
-    angulos = np.degrees(angulos_rad)    
 
     alpha = angulos_rad[2] # mais facil se guardarmos alfa em radianos
     '''
@@ -97,8 +109,8 @@ def recebe_odometria(data):
     contador = contador + 1
     '''
 
+
 def go_to(x2, y2, pub):
-    '''
     global alpha 
     global x
     global y
@@ -106,55 +118,32 @@ def go_to(x2, y2, pub):
     global parado
     global v
     global w
-    '''
 
-    #calcula a dist
-    dist = math.sqrt(math.pow(x2 - x, 2) + math.pow(y2 - y, 2))
+    # calcula a dist entre dois pontos 
+    # dist = math.sqrt(math.pow(x2 - x, 2) + math.pow(y2 - y, 2))
     
-    while dist > 0.6:
+    # calcular theta
+    theta = math.atan2(y2-y, x2-x)
 
-        #calcular theta
-        theta = math.atan2(y2-y, x2-x)
+    # obter alpha da odometria a converter para rad
+    angulo = theta - alpha
 
-        #obter alpha da odometria a converter para rad
-        angulo = theta - alpha
+    # girar theta - alpha para a esquerda
+    tempo = angulo / w
 
-        #girar theta - alpha para a esquerda
-        tempo = angulo / w
 
-        '''
-        if angulo > 0:
-            velocidade = Twist(Vector3(0, 0, 0), Vector3(0, 0, -w))
- 
-        else:
-            velocidade = Twist(Vector3(0, 0, 0), Vector3(0, 0, w))
-        '''
-        velocidade = Twist(Vector3(0, 0, 0), Vector3(0, 0, w))
+    ang = Twist(Vector3(0, 0, 0), Vector3(0, 0, w))
+
+
+    # corrigir o ângulo
+    pub.publish(ang)
+    rospy.sleep(tempo)
+
+    # andar 1 metro de ré 
+    tempo_2 = 1 / v
+    pub.publish(Twist(Vector3(v, 0, 0), Vector3(0, 0, 0)))
+    rospy.sleep(tempo_2)
     
-
-        pub.publish(velocidade)
-        rospy.sleep(tempo)
-        pub.publish(parado)
-        rospy.sleep(0.5)
-
-        #calcula a dist
-        d = math.sqrt(math.pow(x2 - x, 2) + math.pow(y2 - y, 2))
-
-        #andar d 
-        tempo_d = (d-0.5)/v
-
-        velocidade = Twist(Vector3(v, 0, 0), Vector3(0, 0, 0))
-        pub.publish(velocidade)
-        rospy.sleep(tempo_d)
-        pub.publish(parado)
-        rospy.sleep(0.5)
-
-        #calcula a dist
-        dist = math.sqrt(math.pow(x2 - x, 2) + math.pow(y2 - y, 2))
-        print('distancia', dist)
-        print('angulo: ',angulo )
-
-
 
 
 # A função a seguir é chamada sempre que chega um novo frame
@@ -193,10 +182,10 @@ def roda_todo_frame(imagem):
 
         cv_image = saida_net.copy()
         # cv_image = cv2.flip(cv_image, -1) # Descomente se for robo real
-        media_pista, centro_pista, maior_area, identifica_contorno_pista =  center_mass.identifica_pista(cv_image)
-        media_creeper, centro_creeper, maior_area_creeper, identifica_creeper =  creeper.identifica_creeper(cv_image, "rosa")
+        media_pista, centro_pista, maior_area, identifica_contorno_pista =  center_mass.identifica_pista(temp_image)
+        media_creeper, centro_creeper, maior_area_creeper, identifica_creeper =  creeper.identifica_creeper(temp_image, "rosa")
 
-        cv2.imshow("cv_image", cv_image)
+        cv2.imshow("cv_image", temp_image)
         cv2.waitKey(1)
 
     except CvBridgeError as e:
@@ -225,15 +214,6 @@ if __name__=="__main__":
     # [('chair', 86.965459585189819, (90, 141), (177, 265))]
 
     try:
-        w = 0.2
-        v = 0.2
-        # Inicializando - por default gira no sentido anti-horário
-        vel_1 = Twist(Vector3(v,0,0), Vector3(0,0,-w))
-        vel_2 = Twist(Vector3(v,0,0), Vector3(0,0,w))
-        vel = Twist(Vector3(v,0,0), Vector3(0,0,0))
-        parado = Twist(Vector3(0,0,0), Vector3(0,0,0))
-        virar = Twist(Vector3(0,0,0), Vector3(0,0,w))
-        
         dist = 0.8
         tempo1 = dist/v
 
@@ -242,7 +222,6 @@ if __name__=="__main__":
         tempo2 = angulo/w
         
 
-        
         while not rospy.is_shutdown():
             for r in resultados:
                 print(r)
@@ -253,11 +232,13 @@ if __name__=="__main__":
             if not identifica_creeper:
                 flag = True
                 while not identifica_contorno_pista:
+                    print("Procurando pista")
                     velocidade_saida.publish(virar)
                     rospy.sleep(0.1)
 
                 if nao_bateu:
                     try:
+                        print("Encontrei pista")
                         if (media_pista[0] > centro_pista[0]):
                             velocidade_saida.publish(vel_1)
                             rospy.sleep(0.1)
@@ -268,10 +249,12 @@ if __name__=="__main__":
                             velocidade_saida.publish(parado)
                             rospy.sleep(0.1)
                     except:
+                        print("Não era ara eu ter entrada aqui")
                         velocidade_saida.publish(virar)
                         rospy.sleep(0.1)
 
                 else:
+                    print("Entrei aqui doido")
                     velocidade_saida.publish(virar)
                     rospy.sleep(tempo2)
 
@@ -280,9 +263,9 @@ if __name__=="__main__":
 
             else:
                 print('creeper a la vista', identifica_creeper)
-                #ponto =  None
                 if flag:
                     ponto = (x,y)
+                    print("Ponto gravado:", ponto)
                     flag = False
                     print('Hasta la vista babeeeeee! Ponto: ', ponto) 
 
@@ -297,30 +280,8 @@ if __name__=="__main__":
                 else:
                     print('mals ae')
                     go_to(ponto[0], ponto[1], velocidade_saida)
-                    flag = True
                     identifica_creeper = False
-                    print('voltando ao ponto inicial')
-
-
-
-        """
-        estado = "frente"
-        estado = "frente_direita"
-        estado = "frente_esquerda"
-        estado = "parado"
-        estado = "virando_direita"
-
-        def maquina_de_estados(media, centro, nao_bateu, identifica_contorno_pista):
-            
-            if nao_bateu:
-                if (media[0] > centro[0]):
-                    estado = "frente_direita"
-                if (media[0] < centro[0]):
-                    estado = "frente_direita"
-            else:
-                estado = "
-
-        """
+                    print('voltando a pista')
 
     except rospy.ROSInterruptException:
         print("Ocorreu uma exceção com o rospy")
