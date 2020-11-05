@@ -79,7 +79,7 @@ def scaneou(dado):
 def recebe_odometria(data):
     global x
     global y
-    global alfa
+    global alpha
     global contador
 
     x = data.pose.pose.position.x
@@ -141,7 +141,7 @@ def go_to(x2, y2, pub):
         d = math.sqrt(math.pow(x2 - x, 2) + math.pow(y2 - y, 2))
 
         #andar d 
-        tempo_d = (d-0.7)/v
+        tempo_d = (d-0.5)/v
 
         velocidade = Twist(Vector3(v, 0, 0), Vector3(0, 0, 0))
         pub.publish(velocidade)
@@ -297,7 +297,8 @@ if __name__=="__main__":
                 else:
                     print('mals ae')
                     go_to(ponto[0], ponto[1], velocidade_saida)
-                    #flag = True
+                    flag = True
+                    identifica_creeper = False
                     print('voltando ao ponto inicial')
 
 
