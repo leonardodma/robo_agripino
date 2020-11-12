@@ -35,6 +35,10 @@ rospack = rospkg.RosPack()
 
 #INICIALIZAÇÃO DE VARIÁVEIS GLOBAIS
 
+#Objetivo
+#         cor   id  estacao
+goal = ("rosa", 13, "bird")
+
 # Def center_mass
 media_pista = []
 centro_pista = []
@@ -183,7 +187,7 @@ def identifica_id():
     global vel_parado
 
     velocidade_saida.publish(vel_parado)
-    rospy.sleep(50)
+    rospy.sleep(5)
 
 
 
@@ -223,7 +227,7 @@ def roda_todo_frame(imagem):
         cv_image = saida_net.copy()
         # cv_image = cv2.flip(cv_image, -1) # Descomente se for robo real
         media_pista, centro_pista, maior_area, identifica_contorno_pista =  center_mass.identifica_pista(temp_image)
-        media_creeper, centro_creeper, maior_area_creeper, identifica_creeper =  creeper.identifica_creeper(temp_image, "rosa")
+        media_creeper, centro_creeper, maior_area_creeper, identifica_creeper =  creeper.identifica_creeper(temp_image, goal[0])
 
         cv2.imshow("cv_image", temp_image)
         cv2.waitKey(1)
