@@ -26,7 +26,6 @@ from std_msgs.msg import Header
 import visao_module
 import center_mass
 import creeper
-import aruco
 
 
 bridge = CvBridge() #arquivo ros pra abrir o cv_img
@@ -35,10 +34,6 @@ rospack = rospkg.RosPack()
 
 
 #INICIALIZAÇÃO DE VARIÁVEIS GLOBAIS
-
-#Objetivo
-#         cor   id  estacao
-goal = ("rosa", 13, "bird")
 
 # Def center_mass
 media_pista = []
@@ -60,6 +55,8 @@ y = 0
 z = 0 
 alpha = 0
 
+# Aruco
+id = 0
 
 # Conversão do sistema de coordenadas
 tfl = 0
@@ -186,7 +183,7 @@ def identifica_id():
     global vel_parado
 
     velocidade_saida.publish(vel_parado)
-    rospy.sleep(5)
+    rospy.sleep(50)
 
 
 
@@ -214,8 +211,6 @@ def roda_todo_frame(imagem):
     try:
         antes = time.clock()
         temp_image = bridge.compressed_imgmsg_to_cv2(imagem, "bgr8")
-        aruco_image = temp_image.copy()
-
         # Note que os resultados já são guardados automaticamente na variável chamada resultados
         centro, saida_net, resultados =  visao_module.processa(temp_image)        
         for r in resultados:
@@ -228,14 +223,9 @@ def roda_todo_frame(imagem):
         cv_image = saida_net.copy()
         # cv_image = cv2.flip(cv_image, -1) # Descomente se for robo real
         media_pista, centro_pista, maior_area, identifica_contorno_pista =  center_mass.identifica_pista(temp_image)
-        media_creeper, centro_creeper, maior_area_creeper, identifica_creeper =  creeper.identifica_creeper(temp_image, goal[0])
-        
-        # Identificação do Id
-        id_identificado = aruco.identifica_id(aruco_image)
-        print("Id Identificado: ", id_identificado)
+        media_creeper, centro_creeper, maior_area_creeper, identifica_creeper =  creeper.identifica_creeper(temp_image, "rosa")
 
         cv2.imshow("cv_image", temp_image)
-        cv2.imshow("aruco_image", aruco_image)
         cv2.waitKey(1)
 
     except CvBridgeError as e:
