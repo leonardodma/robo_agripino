@@ -22,20 +22,18 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import Header
 
 
-
+# Import de outros funções importantes 
 import visao_module
 import center_mass
 import creeper
 
 
 bridge = CvBridge() #arquivo ros pra abrir o cv_img
+cv_image = None # Cv Image
 rospack = rospkg.RosPack() 
 
 
 #INICIALIZAÇÃO DE VARIÁVEIS GLOBAIS
-
-# Cv image
-cv_image = None 
 
 # Def center_mass
 media_pista = []
@@ -68,8 +66,8 @@ tf_buffer = tf2_ros.Buffer()
 nao_bateu = True
 
 # Inicializando velocidades - por default gira no sentido anti-horário
-w = 0.2
-v = 0.2
+w = 0.3
+v = 0.3
 
 vel_direita = Twist(Vector3(v,0,0), Vector3(0,0,-w))
 vel_esquerda = Twist(Vector3(v,0,0), Vector3(0,0,w))
@@ -78,11 +76,11 @@ vel_parado = Twist(Vector3(0,0,0), Vector3(0,0,0))
 vel_girando = Twist(Vector3(0,0,0), Vector3(0,0,w))
 
 
-# Estado de máquina 
+# Máquina de Estado
 estado = None
 subestado = None
 
-#Verificacao se creeper ja foi identificado
+# Verificação se creeper já foi identificado
 identificado = False
 
 # Marcação para guardar a posição anterior à identificação do creeper
@@ -99,6 +97,7 @@ def scaneou(dado):
     else:
         nao_bateu = True
 
+
 def recebe_odometria(data):
     global x
     global y
@@ -110,47 +109,81 @@ def recebe_odometria(data):
     quat = data.pose.pose.orientation
     lista = [quat.x, quat.y, quat.z, quat.w]
     angulos_rad = transformations.euler_from_quaternion(lista)
-    angulos = np.degrees(angulos_rad)    
 
     alpha = angulos_rad[2] # mais facil se guardarmos alpha em radianos
     
 
 def go_to(x2, y2, pub):
+    # Odometria
     global alpha 
     global x
     global y
-    global dist
-    global parado
+
+    # Velocidades 
     global v
     global w
-
-    # calcula a dist entre dois pontos 
-    # dist = math.sqrt(math.pow(x2 - x, 2) + math.pow(y2 - y, 2))
+    global vel_girando
+    global vel_frente
     
     # calcular theta
     theta = math.atan2(y2-y, x2-x)
 
-    # obter alpha da odometria a converter para rad
+    # ângulo que o robô deve virar para se ajustar com o ponto
     angulo = theta - alpha
 
     # girar theta - alpha para a esquerda
     tempo = angulo / w
 
 
-    ang = Twist(Vector3(0, 0, 0), Vector3(0, 0, w))
-
-
     # corrigir o ângulo
-    pub.publish(ang)
+    pub.publish(vel_girando)
     rospy.sleep(tempo)
 
-    # andar 1 metro de ré 
-    tempo_2 = 1 / v
-    pub.publish(Twist(Vector3(v, 0, 0), Vector3(0, 0, 0)))
+    # andar 0.8 metros
+    tempo_2 = 0.8 / v
+    pub.publish(vel_frente)
     rospy.sleep(tempo_2)
 
     
+def meia_volta():
+    global vel_girando
+    global vel_frente
 
+    tempo1 = 0.8 /v
+
+    # w = dteta/dt
+    angulo = math.pi
+    tempo2 = angulo/w
+
+    velocidade_saida.publish(vel_girando)
+    rospy.sleep(tempo2)
+
+    velocidade_saida.publish(vel_frente)
+    rospy.sleep(tempo1)
+
+
+def direcao_robo_pista():
+    global subestado
+
+    if subestado == 'frente':
+        velocidade_saida.publish(vel_frente)
+
+    if subestado == 'esquerda':
+        velocidade_saida.publish(vel_esquerda)
+
+    if subestado == 'direita':
+        velocidade_saida.publish(vel_direita)
+
+    if subestado == 'final da pista':
+        meia_volta()
+
+
+def identifica_id():
+    global id
+    global vel_parado
+
+    velocidade_saida.publish(vel_parado)
+    rospy.sleep(50)
 
 
 
@@ -219,47 +252,34 @@ if __name__=="__main__":
     # Exemplo de categoria de resultados
     # [('chair', 86.965459585189819, (90, 141), (177, 265))]
 
-    try:
-    
-        dist = 0.8
-        tempo1 = dist/v
 
-        # w = dteta/dt
-        angulo = math.pi
-        tempo2 = angulo/w
-        
+    try:
         estado = 'procurando pista'
 
-        
         while not rospy.is_shutdown():
-            for r in resultados:
-                print(r)
+            # for r in resultados:
+            #    print(r)
 
-
-            
             if estado == 'procurando pista':
-                #se eu nao identifico creeper eu procuro contorno
+                # Se eu nao identifico creeper eu procuro contorno
                 if not identifica_creeper: 
                     while not identifica_contorno_pista:
                         velocidade_saida.publish(vel_girando)
-                        rospy.sleep(0.1)
-                    # se eu identificar o contorno mudo meu estado e passo a seguir a pista    
+                        rospy.sleep(0.01)
+                    # Se eu identificar o contorno mudo meu estado e passo a seguir a pista    
                     estado = 'segue pista'
 
-                #se eu acho o creeper mudo o estado
+                # Se eu acho o creeper mudo o estado
                 else: 
                     estado = 'creeper a la vista'
-
 
             if estado == 'segue pista':
 
                 #precisa colocar a centralizacao da pista e o atualizar o subestado de acordo
                 #precisa atualizar estado caso veja um creeper
                 #precisa atualizar estado caso nao veja mais a pista
-                
-
-                if nao_bateu:
-                    try:
+                try:
+                    if nao_bateu:
                         print("Encontrei pista")
                         if (media_pista[0] > centro_pista[0]):
                             subestado = 'direita'
@@ -267,49 +287,27 @@ if __name__=="__main__":
                             subestado = 'esquerda'
                         else:
                             subestado = 'frente'
-                    except:
-                        #evitar erro
-                        print("Não era ara eu ter entrada aqui")
-                        velocidade_saida.publish(vel_girando)
-                        rospy.sleep(0.1)
 
-                else: #quando ve o final da pista vira 180 e anda 0.8 pra frente
-                    print("Entrei aqui doido")
-                    subestado = 'final da pista'
-
-                # Aqui vou realizar a acao de acordo com meu subestado
-                if subestado == 'frente':
-                    velocidade_saida.publish(vel_frente)
-                    rospy.sleep(0.1)
-
-                if subestado == 'esquerda':
-                    velocidade_saida.publish(vel_esquerda)
-                    rospy.sleep(0.1)
-
-                if subestado == 'direita':
-                    velocidade_saida.publish(vel_direita)
-                    rospy.sleep(0.1)
-
-                if subestado == 'final da pista':
-                    velocidade_saida.publish(vel_girando)
-                    rospy.sleep(tempo2)
-
-                    velocidade_saida.publish(vel_frente)
-                    rospy.sleep(tempo1)
+                    else: #quando ve o final da pista vira 180 e anda 0.8 pra frente
+                        print("Encontrei algum obstáculo")
+                        subestado = 'final da pista'
+                except:
+                    pass
 
 
-                #mudanca de estado
+                # Mudança de estado
                 if not identifica_contorno_pista:
                     estado = 'procurando pista'
 
                 if identifica_creeper and identificado==False:
-                    estado = 'creeper a la vista'    
+                    estado = 'creeper a la vista'  
 
-            
+                # Chama a função direção_robo_pista, que seta a velocidade do robô com base nos substados
+                direcao_robo_pista()
+                rospy.sleep(0.01)  
 
-            
+            # Creeper foi identificado
             if estado == 'creeper a la vista':
-
                 identificado = True
 
                 if flag:
@@ -323,6 +321,8 @@ if __name__=="__main__":
                     print('rosa here I goooo')
         
                 else:
+                    # Chama a função para identificar o Id do Creeper com o Aruco
+                    identifica_id()
                     subestado = 'retorna pista'
                     print('mals ae')
                 
@@ -330,20 +330,21 @@ if __name__=="__main__":
                 if subestado == 'segue creeper':
                     if (media_creeper[0] > centro_creeper[0]):
                         velocidade_saida.publish(vel_direita)
-                        rospy.sleep(0.1)
                     elif (media_creeper[0] < centro_creeper[0]):
                         velocidade_saida.publish(vel_esquerda)
-                        rospy.sleep(0.1)
+
+                    rospy.sleep(0.01)
 
                 if subestado == 'pega creeper':
+                    # Colocar aqui código para identificar Id do creeper
                     pass
                 
                 if subestado == 'retorna pista':
                     go_to(ponto[0], ponto[1], velocidade_saida)
                     identifica_creeper = False
-                    print('voltando a pista')
                     estado = 'procurando pista'
-            
+
+            print("#####################################")
             print('estado: ', estado)
             print('subestado: ', subestado)
 
