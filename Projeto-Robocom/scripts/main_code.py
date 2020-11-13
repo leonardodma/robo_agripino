@@ -362,21 +362,13 @@ if __name__=="__main__":
 
                     rospy.sleep(0.01)
 
-                '''
-                if subestado == 'pega creeper':
-                    # Colocar aqui código para identificar Id do creeper
-                    pass
-                
-                if subestado == 'retorna pista':
-                    go_to(ponto[0], ponto[1], velocidade_saida)
-                    identifica_creeper = False
-                    estado = 'procurando pista'
-                '''
-
                 # cheguei no creeper, pego ele
             if estado == 'pega creeper':
+                
                 velocidade_saida.publish(vel_parado)
                 rospy.sleep(0.1)
+                
+                    
                 
                 if subestado == 'levanta garra':
                     # Depois de estar a uma distancia pre-estabelecida, o creeper levanta o braco e abre a garra
@@ -386,7 +378,7 @@ if __name__=="__main__":
                     rospy.sleep(0.2)
                     subestado = 'aproxima do creeper'
 
-                if subestado == 'aproxima do creeper':
+                elif subestado == 'aproxima do creeper':
                     
                     tempo_aproxima = (dist_preventiva - 0.35)/0.05
                     velocidade_saida.publish(vel_lenta)
@@ -395,7 +387,7 @@ if __name__=="__main__":
                     #feito isso, muda pra agarra creeper
                     subestado = 'agarra creeper'
                 
-                if subestado == 'agarra creeper':
+                elif subestado == 'agarra creeper':
                     garra_publisher.publish(garra_fechada)
                     rospy.sleep(0.1)
                     braco_publisher.publish(braco_levantado)
@@ -403,7 +395,7 @@ if __name__=="__main__":
                     # Fecha a garra, levanta o braco, muda subestado pra retorna pra pista
                     subestado ='retorna pista'        
                     
-                if subestado == 'retorna pista':
+                elif subestado == 'retorna pista':
                     go_to(ponto[0], ponto[1], velocidade_saida)
                     identifica_creeper = False
                     estado = 'procurando pista'
