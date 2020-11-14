@@ -49,7 +49,7 @@ def identifica_pista(bgr):
             return False
 
     
-    return media, centro, maior_contorno_area, booleanContornos(maior_contorno)
+    return media, centro, booleanContornos(maior_contorno)
 
 
 # Função centro de massa baseada na aula 02  https://github.com/Insper/robot202/blob/master/aula02/aula02_Exemplos_Adicionais.ipynb

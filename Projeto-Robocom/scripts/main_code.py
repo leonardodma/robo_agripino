@@ -39,7 +39,7 @@ rospack = rospkg.RosPack()
 
 #Objetivo
 #         cor   id  estacao
-goal = ("rosa", [[13]], "bird")
+goal = ("rosa", 12, "bird")
 
 # Def center_mass
 media_pista = []
@@ -62,7 +62,9 @@ z = 0
 alpha = 0
 
 # Aruco 
-id_identificado = 0
+ids = None
+numero_comparado = 0
+match = 0
 
 
 # Conversão do sistema de coordenadas
@@ -71,11 +73,11 @@ tf_buffer = tf2_ros.Buffer()
 
 # Laser scan
 nao_bateu = True
-dist_preventiva = 0.6
+dist_preventiva = 0.8
 
 # Inicializando velocidades - por default gira no sentido anti-horário
-w = 0.5
-v = 0.3
+w = 0.2
+v = 0.15
 
 vel_direita = Twist(Vector3(v,0,0), Vector3(0,0,-w))
 vel_esquerda = Twist(Vector3(v,0,0), Vector3(0,0,w))
@@ -158,9 +160,9 @@ def go_to(x2, y2, pub):
     rospy.sleep(tempo)
 
     # andar 0.8 metros
-    tempo_2 = 0.8 / v
+    tempo2 = 0.8 / v
     pub.publish(vel_frente)
-    rospy.sleep(tempo_2)
+    rospy.sleep(tempo2)
 
     
 def meia_volta():
@@ -196,24 +198,6 @@ def direcao_robo_pista():
         meia_volta()
 
 
-def identifica_id():
-    global goal
-    global id_identificado
-    global vel_parado
-
-    verifica_match = False
-    velocidade_saida.publish(vel_parado)
-    rospy.sleep(1)
-
-    if id_identificado == goal[1]:
-        verifica_match = True
-    
-    else:
-        verifica_match = False
-    
-    return verifica_match
-
-
 # A função a seguir é chamada sempre que chega um novo frame
 def roda_todo_frame(imagem):
     global cv_image
@@ -225,7 +209,8 @@ def roda_todo_frame(imagem):
     global media_creeper
     global centro_creeper
     global identifica_creeper
-    global id_identificado
+
+    global numero_comparado
 
     # Para robô real
     now = rospy.get_rostime()
@@ -252,12 +237,13 @@ def roda_todo_frame(imagem):
 
         cv_image = saida_net.copy()
         # cv_image = cv2.flip(cv_image, -1) # Descomente se for robo real
-        media_pista, centro_pista, maior_area, identifica_contorno_pista =  center_mass.identifica_pista(temp_image)
-        media_creeper, centro_creeper, maior_area_creeper, identifica_creeper =  creeper.identifica_creeper(temp_image, goal[0])
+        media_pista, centro_pista, identifica_contorno_pista =  center_mass.identifica_pista(temp_image)
+        media_creeper, centro_creeper, identifica_creeper =  creeper.identifica_creeper(temp_image, goal[0])
         
         # Identificação do Id
-        id_identificado = aruco.identifica_id(aruco_image)
-        print("Id Identificado: ", id_identificado)
+        ids = aruco.identifica_id(aruco_image)
+        print("Ids: ", ids)
+        numero_comparado = ids[0][0]
 
         cv2.imshow("cv_image", temp_image)
         cv2.imshow("aruco_image", aruco_image)
@@ -359,22 +345,26 @@ if __name__=="__main__":
                     print('rosa here I goooo')
         
                 else:
-                    # Chama a função para identificar o Id do Creeper com o Aruco
-                    verifica_match = identifica_id()
-                    #subestado = 'retorna pista'
-
                     # Se for verdadeiro (match id desejado com id identificado):
-                    if verifica_match:
+                    if match > 500:
                         estado = 'pega creeper'
                         subestado = 'levanta garra' #levanto a garra assim que mudo o estado
+                    
 
                     # Se for falso, volta para a pista:
                     else:
                         go_to(ponto[0], ponto[1], velocidade_saida)
                         estado = 'procurando pista'
+                        match = 0
 
                 
                 if subestado == 'segue creeper':
+                    print("matchs:", match)
+                    
+                    if numero_comparado == goal[1]:
+                        match += 1
+
+
                     if (media_creeper[0] > centro_creeper[0]):
                         velocidade_saida.publish(vel_direita)
                     elif (media_creeper[0] < centro_creeper[0]):
@@ -398,7 +388,7 @@ if __name__=="__main__":
 
                 if subestado == 'aproxima do creeper':
                     
-                    tempo_aproxima = (dist_preventiva - 0.35)/0.05
+                    tempo_aproxima = (dist_preventiva - 0.4)/0.05
                     velocidade_saida.publish(vel_lenta)
                     rospy.sleep(tempo_aproxima)
                     # Anda um distancia nao_bateu lentamente 

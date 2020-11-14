@@ -81,4 +81,4 @@ def identifica_creeper(frame, creeper_color):
     cv2.imshow('seg', segmentado_cor)
     cv2.waitKey(1)
 
-    return media, centro, maior_contorno_area, booleanContornos(maior_contorno)
+    return media, centro, booleanContornos(maior_contorno)
