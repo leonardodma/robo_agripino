@@ -63,7 +63,6 @@ def identifica_id(cv_image):
 
 		#-- Print tvec vetor de tanslação em x y z
 		str_position = "Marker x=%4.0f  y=%4.0f  z=%4.0f"%(tvec[0], tvec[1], tvec[2])
-		print(str_position)
 		cv2.putText(cv_image, str_position, (0, 100), font, 1, (0, 255, 0), 1, cv2.LINE_AA)
 
 		##############----- Referencia dos Eixos------###########################
@@ -71,36 +70,6 @@ def identifica_id(cv_image):
 		cv2.line(cv_image, (cv_image.shape[1]/2,cv_image.shape[0]/2), ((cv_image.shape[1]/2 + 50),(cv_image.shape[0]/2)), (0,0,255), 5) 
 		# Linha referencia em Y
 		cv2.line(cv_image, (cv_image.shape[1]/2,cv_image.shape[0]/2), (cv_image.shape[1]/2,(cv_image.shape[0]/2 + 50)), (0,255,0), 5) 	
-		
-		#####################---- Distancia Euclidiana ----#####################
-		# Calcula a distancia usando apenas a matriz tvec, matriz de tanslação
-		# Pode usar qualquer uma das duas formas
-		distance = np.sqrt(tvec[0]**2 + tvec[1]**2 + tvec[2]**2)
-		distancenp = np.linalg.norm(tvec)
-
-		#-- Print distance
-		str_dist = "Dist aruco=%4.0f  dis.np=%4.0f"%(distance, distancenp)
-		print(str_dist)
-		cv2.putText(cv_image, str_dist, (0, 15), font, 1, (0, 255, 0), 1, cv2.LINE_AA)
-
-		#####################---- Distancia pelo foco ----#####################
-		#https://www.pyimagesearch.com/2015/01/19/find-distance-camera-objectmarker-using-python-opencv/
-		
-		# raspicam v2 focal legth 
-		FOCAL_LENGTH = 3.6 #3.04
-		# pixel por unidade de medida
-		m = (camera_matrix[0][0]/FOCAL_LENGTH + camera_matrix[1][1]/FOCAL_LENGTH)/2
-		# corners[0][0][0][0] = [ID][plano?][pos_corner(sentido horario)][0=valor_pos_x, 1=valor_pos_y]	
-		pixel_length1 = math.sqrt(math.pow(corners[0][0][0][0] - corners[0][0][1][0], 2) + math.pow(corners[0][0][0][1] - corners[0][0][1][1], 2))
-		pixel_length2 = math.sqrt(math.pow(corners[0][0][2][0] - corners[0][0][3][0], 2) + math.pow(corners[0][0][2][1] - corners[0][0][3][1], 2))
-		pixlength = (pixel_length1+pixel_length2)/2
-		dist = marker_size * FOCAL_LENGTH / (pixlength/m)
-		
-		#-- Print distancia focal
-		str_distfocal = "Dist focal=%4.0f"%(dist)
-		print(str_distfocal)
-		cv2.putText(cv_image, str_distfocal, (0, 30), font, 1, (0, 255, 0), 1, cv2.LINE_AA)	
-
 
 		####################--------- desenha o cubo -----------#########################
 		# https://github.com/RaviJoshii/3DModeler/blob/eb7ca48fa06ca85fcf5c5ec9dc4b562ce9a22a76/opencv/program/detect.py			

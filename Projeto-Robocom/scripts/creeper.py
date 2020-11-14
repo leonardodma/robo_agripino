@@ -60,7 +60,7 @@ def identifica_creeper(frame, creeper_color):
             maior_contorno_area = area
 
     def booleanContornos(maior_contorno):
-        if maior_contorno_area > 100:
+        if maior_contorno_area > 80:
             return True
         else:
             return False
