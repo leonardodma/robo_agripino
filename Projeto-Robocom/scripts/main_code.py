@@ -73,10 +73,10 @@ tf_buffer = tf2_ros.Buffer()
 
 # Laser scan
 nao_bateu = True
-dist_preventiva = 0.8
+dist_preventiva = 0.25
 
 # Inicializando velocidades - por default gira no sentido anti-horário
-w = 0.2
+w = 0.3
 v = 0.15
 
 vel_direita = Twist(Vector3(v,0,0), Vector3(0,0,-w))
@@ -387,8 +387,9 @@ if __name__=="__main__":
                     subestado = 'aproxima do creeper'
 
                 if subestado == 'aproxima do creeper':
-                    
-                    tempo_aproxima = (dist_preventiva - 0.4)/0.05
+                    velocidade_saida.publish(vel_parado)
+                    rospy.sleep(0.1)
+                    tempo_aproxima = (dist_preventiva - 0.225)/0.05
                     velocidade_saida.publish(vel_lenta)
                     rospy.sleep(tempo_aproxima)
                     # Anda um distancia nao_bateu lentamente 
