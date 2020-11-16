@@ -8,8 +8,14 @@ import cv2
 import time
 import auxiliar as aux
 
+maior_contorno = 0
+maior_contorno_area = 0
 
 def identifica_creeper(frame, creeper_color):
+    global maior_contorno
+    global maior_contorno_area
+
+
     segmentado_cor = None
     frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -30,10 +36,6 @@ def identifica_creeper(frame, creeper_color):
         cor_menor = np.array([178, 180, 135])
         cor_maior = np.array([180, 255, 255])
         segmentado_cor += cv2.inRange(frame_hsv, cor_menor, cor_maior)
-    
-    else: # creeper_color == "verde":
-        cor_menor, cor_maior = aux.ranges("#00ff00")
-        segmentado_cor = cv2.inRange(frame_hsv, cor_menor, cor_maior)
 
 
     # Note que a notacão do numpy encara as imagens como matriz, portanto o enderecamento é
@@ -49,9 +51,7 @@ def identifica_creeper(frame, creeper_color):
 
     # Encontramos os contornos na máscara e selecionamos o de maior área
     contornos, arvore = cv2.findContours(segmentado_cor.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) 
-    
-    maior_contorno = None
-    maior_contorno_area = 0
+
 
     for cnt in contornos:
         area = cv2.contourArea(cnt)
@@ -60,7 +60,7 @@ def identifica_creeper(frame, creeper_color):
             maior_contorno_area = area
 
     def booleanContornos(maior_contorno):
-        if maior_contorno_area > 80:
+        if maior_contorno_area > 100:
             return True
         else:
             return False

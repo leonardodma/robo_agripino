@@ -39,7 +39,7 @@ rospack = rospkg.RosPack()
 
 #Objetivo
 #         cor   id  estacao
-goal = ("rosa", 12, "bird")
+goal = ("rosa", 13, "bird")
 
 # Def center_mass
 media_pista = []
@@ -73,17 +73,21 @@ tf_buffer = tf2_ros.Buffer()
 
 # Laser scan
 nao_bateu = True
-dist_preventiva = 0.25
+dist_preventiva = 0.3
 
 # Inicializando velocidades - por default gira no sentido anti-horário
-w = 0.3
-v = 0.15
+w = 0.48
+v = 0.36
 
 vel_direita = Twist(Vector3(v,0,0), Vector3(0,0,-w))
 vel_esquerda = Twist(Vector3(v,0,0), Vector3(0,0,w))
+vel_direita_creeper = Twist(Vector3(v/3,0,0), Vector3(0,0,-w/3))
+vel_esquerda_creeper = Twist(Vector3(v/3,0,0), Vector3(0,0,w/3))
+
 vel_frente = Twist(Vector3(v,0,0), Vector3(0,0,0))
 vel_parado = Twist(Vector3(0,0,0), Vector3(0,0,0))
-vel_girando = Twist(Vector3(0,0,0), Vector3(0,0,w))
+vel_girando_ah = Twist(Vector3(0,0,0), Vector3(0,0,w)) # Anti-Horário
+vel_girando_h = Twist(Vector3(0,0,0), Vector3(0,0,-w)) # Horário
 vel_lenta = Twist(Vector3(0.05,0,0), Vector3(0,0,0))
 
 # Inicializando posicoes da garra e braco
@@ -142,7 +146,7 @@ def go_to(x2, y2, pub):
     # Velocidades 
     global v
     global w
-    global vel_girando
+    global vel_girando_ah
     global vel_frente
     
     # calcular theta
@@ -156,7 +160,7 @@ def go_to(x2, y2, pub):
 
 
     # corrigir o ângulo
-    pub.publish(vel_girando)
+    pub.publish(vel_girando_ah)
     rospy.sleep(tempo)
 
     # andar 0.8 metros
@@ -166,7 +170,7 @@ def go_to(x2, y2, pub):
 
     
 def meia_volta():
-    global vel_girando
+    global vel_girando_h
     global vel_frente
 
     tempo1 = 0.8 /v
@@ -175,7 +179,7 @@ def meia_volta():
     angulo = math.pi
     tempo2 = angulo/w
 
-    velocidade_saida.publish(vel_girando)
+    velocidade_saida.publish(vel_girando_h)
     rospy.sleep(tempo2)
 
     velocidade_saida.publish(vel_frente)
@@ -196,6 +200,44 @@ def direcao_robo_pista():
 
     if subestado == 'final da pista':
         meia_volta()
+
+
+def controla_garra():
+    global estado
+    global subestado
+    global identifica_creeper
+
+    if subestado == 'levanta garra':
+        # Depois de estar a uma distancia pre-estabelecida, o creeper levanta o braco e abre a garra
+        # Feito isso, o estado muda para aproxima do creeper
+        braco_publisher.publish(braco_frente)
+        garra_publisher.publish(garra_aberta)
+        rospy.sleep(0.2)
+        subestado = 'aproxima do creeper'
+
+    if subestado == 'aproxima do creeper':
+        velocidade_saida.publish(vel_parado)
+        rospy.sleep(0.2)
+        tempo_aproxima = (dist_preventiva - 0.225)/0.05
+        velocidade_saida.publish(vel_lenta)
+        rospy.sleep(tempo_aproxima)
+        # Anda um distancia nao_bateu lentamente 
+        #feito isso, muda pra agarra creeper
+        subestado = 'agarra creeper'
+    
+    if subestado == 'agarra creeper':
+        garra_publisher.publish(garra_fechada)
+        rospy.sleep(0.1)
+        braco_publisher.publish(braco_levantado)
+        rospy.sleep(0.1)
+        # Fecha a garra, levanta o braco, muda subestado pra retorna pra pista
+        subestado ='retorna pista'        
+        
+    if subestado == 'retorna pista':
+        go_to(ponto[0], ponto[1], velocidade_saida)
+        identifica_creeper = False
+        estado = 'procurando pista'
+    
 
 
 # A função a seguir é chamada sempre que chega um novo frame
@@ -288,7 +330,7 @@ if __name__=="__main__":
                 # Se eu nao identifico creeper eu procuro contorno
                 if not identifica_creeper: 
                     while not identifica_contorno_pista:
-                        velocidade_saida.publish(vel_girando)
+                        velocidade_saida.publish(vel_girando_ah)
                         rospy.sleep(0.01)
                     # Se eu identificar o contorno mudo meu estado e passo a seguir a pista    
                     estado = 'segue pista'
@@ -332,7 +374,7 @@ if __name__=="__main__":
 
             # Creeper foi identificado
             if estado == 'creeper a la vista':
-                identificado = True
+                # identificado = True
 
                 if flag:
                     ponto = (x,y)
@@ -346,13 +388,15 @@ if __name__=="__main__":
         
                 else:
                     # Se for verdadeiro (match id desejado com id identificado):
-                    if match > 500:
+                    if match > 200:
+                        identificado = True
                         estado = 'pega creeper'
                         subestado = 'levanta garra' #levanto a garra assim que mudo o estado
                     
 
                     # Se for falso, volta para a pista:
                     else:
+                        print("Entrei na go to")
                         go_to(ponto[0], ponto[1], velocidade_saida)
                         estado = 'procurando pista'
                         match = 0
@@ -364,11 +408,10 @@ if __name__=="__main__":
                     if numero_comparado == goal[1]:
                         match += 1
 
-
                     if (media_creeper[0] > centro_creeper[0]):
-                        velocidade_saida.publish(vel_direita)
+                        velocidade_saida.publish(vel_direita_creeper)
                     elif (media_creeper[0] < centro_creeper[0]):
-                        velocidade_saida.publish(vel_esquerda)
+                        velocidade_saida.publish(vel_esquerda_creeper)
 
                     rospy.sleep(0.01)
 
@@ -377,37 +420,11 @@ if __name__=="__main__":
             if estado == 'pega creeper':
                 velocidade_saida.publish(vel_parado)
                 rospy.sleep(0.1)
-                
-                if subestado == 'levanta garra':
-                    # Depois de estar a uma distancia pre-estabelecida, o creeper levanta o braco e abre a garra
-                    # Feito isso, o estado muda para aproxima do creeper
-                    braco_publisher.publish(braco_frente)
-                    garra_publisher.publish(garra_aberta)
-                    rospy.sleep(0.2)
-                    subestado = 'aproxima do creeper'
 
-                if subestado == 'aproxima do creeper':
-                    velocidade_saida.publish(vel_parado)
-                    rospy.sleep(0.1)
-                    tempo_aproxima = (dist_preventiva - 0.225)/0.05
-                    velocidade_saida.publish(vel_lenta)
-                    rospy.sleep(tempo_aproxima)
-                    # Anda um distancia nao_bateu lentamente 
-                    #feito isso, muda pra agarra creeper
-                    subestado = 'agarra creeper'
+                # Chama a função para controlar a garra, baseado nos subestados
+                controla_garra()
                 
-                if subestado == 'agarra creeper':
-                    garra_publisher.publish(garra_fechada)
-                    rospy.sleep(0.1)
-                    braco_publisher.publish(braco_levantado)
-                    rospy.sleep(0.1)
-                    # Fecha a garra, levanta o braco, muda subestado pra retorna pra pista
-                    subestado ='retorna pista'        
-                    
-                if subestado == 'retorna pista':
-                    go_to(ponto[0], ponto[1], velocidade_saida)
-                    identifica_creeper = False
-                    estado = 'procurando pista'
+                
 
             print("#####################################")
             print('estado: ', estado)
