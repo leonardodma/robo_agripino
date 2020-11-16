@@ -76,8 +76,8 @@ nao_bateu = True
 dist_preventiva = 0.3
 
 # Inicializando velocidades - por default gira no sentido anti-horário
-w = 0.48
-v = 0.36
+w = 0.35
+v = 0.25
 
 vel_direita = Twist(Vector3(v,0,0), Vector3(0,0,-w))
 vel_esquerda = Twist(Vector3(v,0,0), Vector3(0,0,w))
@@ -205,7 +205,7 @@ def direcao_robo_pista():
 def controla_garra():
     global estado
     global subestado
-    global identifica_creeper
+    global identificado
 
     if subestado == 'levanta garra':
         # Depois de estar a uma distancia pre-estabelecida, o creeper levanta o braco e abre a garra
@@ -215,7 +215,7 @@ def controla_garra():
         rospy.sleep(0.2)
         subestado = 'aproxima do creeper'
 
-    if subestado == 'aproxima do creeper':
+    elif subestado == 'aproxima do creeper':
         velocidade_saida.publish(vel_parado)
         rospy.sleep(0.2)
         tempo_aproxima = (dist_preventiva - 0.225)/0.05
@@ -225,7 +225,7 @@ def controla_garra():
         #feito isso, muda pra agarra creeper
         subestado = 'agarra creeper'
     
-    if subestado == 'agarra creeper':
+    elif subestado == 'agarra creeper':
         garra_publisher.publish(garra_fechada)
         rospy.sleep(0.1)
         braco_publisher.publish(braco_levantado)
@@ -233,10 +233,11 @@ def controla_garra():
         # Fecha a garra, levanta o braco, muda subestado pra retorna pra pista
         subestado ='retorna pista'        
         
-    if subestado == 'retorna pista':
+    elif subestado == 'retorna pista':
         go_to(ponto[0], ponto[1], velocidade_saida)
-        identifica_creeper = False
+        identificado = True
         estado = 'procurando pista'
+        subestado = ""
     
 
 
@@ -284,7 +285,6 @@ def roda_todo_frame(imagem):
         
         # Identificação do Id
         ids = aruco.identifica_id(aruco_image)
-        print("Ids: ", ids)
         numero_comparado = ids[0][0]
 
         cv2.imshow("cv_image", temp_image)
@@ -336,7 +336,7 @@ if __name__=="__main__":
                     estado = 'segue pista'
 
                 # Se eu acho o creeper mudo o estado
-                else: 
+                if identifica_creeper and identificado==False: 
                     estado = 'creeper a la vista'
 
             if estado == 'segue pista':
@@ -360,7 +360,7 @@ if __name__=="__main__":
                 except:
                     pass
 
-
+                
                 # Mudança de estado
                 if not identifica_contorno_pista:
                     estado = 'procurando pista'
@@ -374,7 +374,6 @@ if __name__=="__main__":
 
             # Creeper foi identificado
             if estado == 'creeper a la vista':
-                # identificado = True
 
                 if flag:
                     ponto = (x,y)
@@ -389,7 +388,6 @@ if __name__=="__main__":
                 else:
                     # Se for verdadeiro (match id desejado com id identificado):
                     if match > 200:
-                        identificado = True
                         estado = 'pega creeper'
                         subestado = 'levanta garra' #levanto a garra assim que mudo o estado
                     
@@ -423,6 +421,7 @@ if __name__=="__main__":
 
                 # Chama a função para controlar a garra, baseado nos subestados
                 controla_garra()
+                
                 
                 
 
